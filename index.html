@@ -1,0 +1,411 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0"/>
+<meta name="apple-mobile-web-app-capable" content="yes"/>
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
+<meta name="apple-mobile-web-app-title" content="Music Now"/>
+<title>Music Now</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css"/>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<style>
+:root{--bg:#0a0a0f;--surface:#13131a;--card:#1c1c26;--border:#2a2a38;--accent:#b84ef0;--accent2:#7c3aed;--gold:#f59e0b;--green:#10b981;--text:#f0f0f8;--muted:#8888aa;--radius:16px;}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:-apple-system,BlinkMacSystemFont,'SF Pro Display',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;overflow-x:hidden;}
+header{position:sticky;top:0;z-index:100;background:rgba(10,10,15,0.94);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border-bottom:1px solid var(--border);padding:14px 20px 12px;}
+.header-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;}
+.logo{display:flex;align-items:center;gap:10px;}
+.logo-icon{width:36px;height:36px;border-radius:10px;background:linear-gradient(135deg,var(--accent),var(--accent2));display:flex;align-items:center;justify-content:center;font-size:18px;}
+.logo h1{font-size:22px;font-weight:700;letter-spacing:-0.5px;}
+.logo h1 span{color:var(--accent);}
+.loc-badge{font-size:12px;color:var(--green);background:var(--card);border-radius:20px;padding:6px 12px;border:1px solid rgba(16,185,129,0.4);}
+.day-tabs{display:flex;gap:8px;overflow-x:auto;scrollbar-width:none;}
+.day-tabs::-webkit-scrollbar{display:none;}
+.day-tab{flex-shrink:0;padding:8px 18px;border-radius:20px;font-size:14px;font-weight:600;cursor:pointer;border:1px solid var(--border);background:var(--card);color:var(--muted);transition:all 0.2s;}
+.day-tab.active{background:linear-gradient(135deg,var(--accent),var(--accent2));color:white;border-color:transparent;}
+.view-toggle{display:flex;background:var(--card);border:1px solid var(--border);border-radius:10px;overflow:hidden;margin:12px 20px 0;}
+.view-btn{flex:1;padding:9px;border:none;cursor:pointer;background:transparent;color:var(--muted);font-size:13px;font-weight:600;transition:all 0.2s;}
+.view-btn.active{background:var(--accent);color:white;}
+main{padding:16px 20px;}
+#map-view{display:none;}
+.result-meta{font-size:13px;color:var(--muted);margin-bottom:14px;display:flex;align-items:center;gap:8px;}
+.result-meta span{color:var(--accent);font-weight:700;}
+.sources-row{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px;}
+.source-pill{font-size:11px;font-weight:600;padding:4px 10px;border-radius:20px;background:rgba(184,78,240,0.1);border:1px solid var(--accent);color:var(--accent);}
+.events-list{display:flex;flex-direction:column;gap:12px;}
+.event-card{background:var(--card);border-radius:var(--radius);border:1px solid var(--border);padding:16px;display:flex;gap:14px;cursor:pointer;transition:transform 0.15s,border-color 0.15s;}
+.event-card:active{transform:scale(0.98);border-color:var(--accent);}
+.time-col{flex-shrink:0;text-align:center;width:52px;}
+.time-main{font-size:15px;font-weight:800;color:var(--accent);line-height:1;}
+.time-ampm{font-size:11px;color:var(--muted);margin-top:2px;}
+.time-divider{width:1px;background:var(--border);flex-grow:1;margin:6px auto 0;min-height:30px;display:block;}
+.ev-body{flex:1;min-width:0;}
+.ev-name{font-size:15px;font-weight:700;margin-bottom:3px;line-height:1.3;}
+.ev-venue{font-size:13px;color:var(--muted);margin-bottom:7px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.ev-tags{display:flex;gap:5px;flex-wrap:wrap;}
+.tag{font-size:11px;font-weight:600;padding:3px 8px;border-radius:6px;}
+.tag-genre{background:rgba(184,78,240,0.15);color:var(--accent);}
+.tag-dist{background:rgba(16,185,129,0.15);color:var(--green);}
+.tag-free{background:rgba(16,185,129,0.2);color:var(--green);border:1px solid rgba(16,185,129,0.3);}
+.ev-emoji{width:58px;height:58px;border-radius:12px;background:linear-gradient(135deg,var(--accent2),var(--accent));display:flex;align-items:center;justify-content:center;font-size:26px;flex-shrink:0;}
+#map-wrap{width:100%;height:420px;border-radius:var(--radius);overflow:hidden;border:1px solid var(--border);}
+#the-map{width:100%;height:100%;}
+.map-cards{margin-top:14px;display:flex;flex-direction:column;gap:10px;}
+.map-mini-card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:12px 14px;display:flex;align-items:center;gap:12px;cursor:pointer;}
+.map-mini-card:active{border-color:var(--accent);}
+.mmc-time{font-size:13px;font-weight:800;color:var(--accent);flex-shrink:0;width:52px;}
+.mmc-info{flex:1;min-width:0;}
+.mmc-name{font-size:13px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.mmc-venue{font-size:12px;color:var(--muted);}
+.mmc-emoji{font-size:20px;}
+.state-box{text-align:center;padding:56px 20px;display:flex;flex-direction:column;align-items:center;gap:14px;}
+.state-icon{font-size:52px;}
+.state-title{font-size:19px;font-weight:700;}
+.state-sub{font-size:14px;color:var(--muted);line-height:1.6;max-width:280px;}
+.btn-primary{background:linear-gradient(135deg,var(--accent),var(--accent2));color:white;border:none;padding:14px 32px;border-radius:14px;font-size:16px;font-weight:700;cursor:pointer;}
+.spinner{width:38px;height:38px;border:3px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin 0.75s linear infinite;}
+@keyframes spin{to{transform:rotate(360deg);}}
+.ai-progress{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:20px;margin-bottom:16px;}
+.ai-progress-title{font-size:14px;font-weight:700;margin-bottom:12px;display:flex;align-items:center;gap:8px;}
+.ai-steps{display:flex;flex-direction:column;gap:8px;}
+.ai-step{display:flex;align-items:center;gap:10px;font-size:13px;color:var(--muted);}
+.ai-step.done{color:var(--green);}
+.ai-step.active{color:var(--text);}
+.step-dot{width:8px;height:8px;border-radius:50%;background:var(--border);flex-shrink:0;}
+.ai-step.done .step-dot{background:var(--green);}
+.ai-step.active .step-dot{background:var(--accent);animation:pulse 1s infinite;}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:0.3}}
+.overlay{position:fixed;inset:0;background:rgba(0,0,0,0.75);z-index:500;display:none;align-items:flex-end;backdrop-filter:blur(6px);}
+.overlay.open{display:flex;}
+.sheet{background:var(--surface);border-radius:24px 24px 0 0;width:100%;padding:20px 24px 36px;border-top:1px solid var(--border);max-height:80vh;overflow-y:auto;}
+.sheet-handle{width:40px;height:4px;background:var(--border);border-radius:2px;margin:0 auto 18px;}
+.sheet-title{font-size:20px;font-weight:800;margin-bottom:4px;}
+.sheet-venue{font-size:14px;color:var(--accent);margin-bottom:18px;font-weight:600;}
+.sheet-rows{display:flex;flex-direction:column;gap:14px;margin-bottom:22px;}
+.sheet-row{display:flex;gap:12px;align-items:flex-start;}
+.sheet-row-icon{font-size:18px;width:26px;text-align:center;flex-shrink:0;margin-top:1px;}
+.sheet-row-text{font-size:14px;color:var(--muted);line-height:1.5;}
+.sheet-row-text strong{color:var(--text);display:block;margin-bottom:2px;}
+.sheet-actions{display:flex;gap:10px;}
+.btn-sec{flex:1;padding:13px;border-radius:14px;font-size:14px;font-weight:700;cursor:pointer;border:1px solid var(--border);background:var(--card);color:var(--text);}
+.btn-go{flex:2;padding:13px;border-radius:14px;font-size:14px;font-weight:700;cursor:pointer;border:none;background:linear-gradient(135deg,var(--green),#059669);color:white;}
+.btn-src{flex:2;padding:13px;border-radius:14px;font-size:14px;font-weight:700;cursor:pointer;border:none;background:linear-gradient(135deg,var(--accent),var(--accent2));color:white;}
+</style>
+</head>
+<body>
+<header>
+  <div class="header-top">
+    <div class="logo">
+      <div class="logo-icon">🎵</div>
+      <h1>Music <span>Now</span></h1>
+    </div>
+    <div class="loc-badge" id="locBadge">📍 Sunnyvale, CA</div>
+  </div>
+  <div class="day-tabs">
+    <button class="day-tab active" onclick="setDay('today',this)">🌙 Tonight</button>
+    <button class="day-tab" onclick="setDay('tomorrow',this)">☀️ Tomorrow</button>
+    <button class="day-tab" onclick="setDay('weekend',this)">🎉 Weekend</button>
+  </div>
+</header>
+<div class="view-toggle">
+  <button class="view-btn active" onclick="setView('list',this)">📋 List</button>
+  <button class="view-btn" onclick="setView('map',this)">🗺️ Map</button>
+</div>
+<main>
+  <div id="list-view"><div id="content"></div></div>
+  <div id="map-view">
+    <div id="map-wrap"><div id="the-map"></div></div>
+    <div class="map-cards" id="map-cards"></div>
+  </div>
+</main>
+<div class="overlay" id="detailOverlay" onclick="closeDetail(event)">
+  <div class="sheet">
+    <div class="sheet-handle"></div>
+    <div id="detailBody"></div>
+  </div>
+</div>
+<script>
+const API='https://api.anthropic.com/v1/messages';
+const EMOJIS={Winery:'🍷',Bar:'🍺',Restaurant:'🍽️',Public:'🎪'};
+
+// ── DEFAULT: SUNNYVALE ─────────────────────────────────────────────────
+let userLat=37.3688, userLng=-122.0363, userCity='Sunnyvale, CA';
+let currentDay='today', currentView='list';
+let allEvents=[], leafletMap=null;
+
+const DEMO=[
+  {id:1,name:"Acoustic Duo – The Millers",venue:"Cork & Vine Winery",type:"Winery",address:"1240 Vineyard Rd, Sunnyvale, CA 94087",time:"6:00 PM",timeSort:"18:00",day:"today",genre:"Folk/Acoustic",dist:"2.3 mi",lat:37.387,lng:-122.024,note:"Free admission, indoor patio",performerBio:"The Millers are a husband-and-wife acoustic duo known for warm harmonies and original folk songwriting.",sourceUrl:"https://www.eventbrite.com",sourceName:"Eventbrite"},
+  {id:2,name:"Jazz Night with Trio Blue",venue:"The Rusty Barrel",type:"Bar",address:"88 Murphy Ave, Sunnyvale, CA 94086",time:"7:30 PM",timeSort:"19:30",day:"today",genre:"Jazz",dist:"3.1 mi",lat:37.376,lng:-122.031,note:"Free, 21+ after 9pm",performerBio:"Trio Blue is a local jazz ensemble featuring saxophone, upright bass, and drums.",sourceUrl:"https://www.facebook.com/events",sourceName:"Facebook Events"},
+  {id:3,name:"Latin Beats ft. DJ Samba",venue:"Casa Bonita Restaurant",type:"Restaurant",address:"55 Paloma Ave, Palo Alto, CA 94301",time:"8:00 PM",timeSort:"20:00",day:"today",genre:"Latin",dist:"4.7 mi",lat:37.442,lng:-122.143,note:"Free w/ dinner reservation",performerBio:"DJ Samba has been spinning Latin rhythms for 8 years.",sourceUrl:"https://www.eventbrite.com",sourceName:"Eventbrite"},
+  {id:4,name:"Open Mic Night",venue:"The Green Room Pub",type:"Bar",address:"200 Castro St, Mountain View, CA 94041",time:"8:30 PM",timeSort:"20:30",day:"today",genre:"Various",dist:"5.2 mi",lat:37.389,lng:-122.082,note:"Free, all ages welcome",performerBio:"A beloved community open mic hosted by local musician Ray Fontaine.",sourceUrl:"https://www.facebook.com/events",sourceName:"Facebook Events"},
+  {id:5,name:"Country Sunset Sessions",venue:"Hillside Winery",type:"Winery",address:"900 Ridge Road, Los Gatos, CA 95032",time:"5:00 PM",timeSort:"17:00",day:"today",genre:"Country",dist:"7.4 mi",lat:37.231,lng:-121.962,note:"Free on winery lawn",performerBio:"A rotating lineup of local country artists perform on the vineyard lawn every Friday.",sourceUrl:"https://www.hillsidewinery.com/events",sourceName:"Hillside Winery"},
+  {id:6,name:"Blues Night",venue:"Blue Moon Bar & Grill",type:"Bar",address:"14 Harbor Blvd, Santa Clara, CA 95050",time:"9:00 PM",timeSort:"21:00",day:"today",genre:"Blues",dist:"9.1 mi",lat:37.354,lng:-121.955,note:"Free, bar min. applies",performerBio:"The Soul Shakers are a 6-piece blues tribute act with an explosive horn section.",sourceUrl:"https://www.facebook.com/events",sourceName:"Facebook Events"},
+  {id:7,name:"Downtown Buskers Festival",venue:"Murphy Ave Plaza",type:"Public",address:"Murphy Ave, Sunnyvale, CA 94086",time:"2:00 PM",timeSort:"14:00",day:"today",genre:"Various",dist:"1.8 mi",lat:37.378,lng:-122.031,note:"Free, open to all ages",performerBio:"A rotating cast of Bay Area street performers take over the plaza all afternoon.",sourceUrl:"https://www.eventbrite.com",sourceName:"Eventbrite"},
+  {id:8,name:"Morning Jazz Brunch",venue:"Sunrise Bistro",type:"Restaurant",address:"12 University Ave, Palo Alto, CA 94301",time:"11:00 AM",timeSort:"11:00",day:"tomorrow",genre:"Jazz",dist:"3.8 mi",lat:37.447,lng:-122.160,note:"Free w/ brunch",performerBio:"The Sunday Jazz Quartet plays jazz standards and bossa nova.",sourceUrl:"https://www.eventbrite.com",sourceName:"Eventbrite"},
+  {id:9,name:"Acoustic Sunday",venue:"The Copper Tap",type:"Bar",address:"77 S Murphy Ave, Sunnyvale, CA 94086",time:"4:00 PM",timeSort:"16:00",day:"tomorrow",genre:"Acoustic",dist:"2.1 mi",lat:37.376,lng:-122.030,note:"Free all day",performerBio:"Singer-songwriter Danny Reeves plays folk, indie, and classic rock.",sourceUrl:"https://www.facebook.com/events",sourceName:"Facebook Events"},
+  {id:10,name:"Farmers Market Live Music",venue:"Sunnyvale Farmers Market",type:"Public",address:"Murphy Ave & Evelyn Ave, Sunnyvale, CA 94086",time:"9:00 AM",timeSort:"09:00",day:"tomorrow",genre:"Folk/Bluegrass",dist:"2.0 mi",lat:37.377,lng:-122.031,note:"Free, family friendly",performerBio:"The Porch Pickers play upbeat fiddle-driven folk and bluegrass.",sourceUrl:"https://www.facebook.com/events",sourceName:"Facebook Events"},
+  {id:11,name:"Weekend Indie Showcase",venue:"The Catalyst",type:"Bar",address:"101 Murphy Ave, Sunnyvale, CA 94086",time:"7:00 PM",timeSort:"19:00",day:"weekend",genre:"Indie Rock",dist:"2.2 mi",lat:37.380,lng:-122.033,note:"Free entry before 8pm",performerBio:"Three up-and-coming indie rock bands take the stage.",sourceUrl:"https://www.facebook.com/events",sourceName:"Facebook Events"},
+  {id:12,name:"Harvest Wine & Jazz",venue:"Cooper Garrod Winery",type:"Winery",address:"22645 Garrod Rd, Saratoga, CA 95070",time:"3:00 PM",timeSort:"15:00",day:"weekend",genre:"Jazz",dist:"9.8 mi",lat:37.254,lng:-122.032,note:"Free wine tasting event",performerBio:"Saxophonist Marco Vega leads his jazz quartet among the vines.",sourceUrl:"https://www.coopergarrod.com/events",sourceName:"Cooper Garrod Winery"},
+  {id:13,name:"Park Concert Series",venue:"Las Palmas Park",type:"Public",address:"850 Russet Dr, Sunnyvale, CA 94087",time:"5:00 PM",timeSort:"17:00",day:"weekend",genre:"Classical/Jazz",dist:"1.5 mi",lat:37.362,lng:-122.032,note:"Free, bring a blanket!",performerBio:"The Chamber Wind Ensemble plays classical favorites and jazz arrangements.",sourceUrl:"https://www.eventbrite.com",sourceName:"Eventbrite"},
+];
+
+// ── INIT ───────────────────────────────────────────────────────────────
+window.onload=()=>{
+  const badge=document.getElementById('locBadge');
+  // Try GPS silently — don't block the search
+  if(navigator.geolocation){
+    navigator.geolocation.getCurrentPosition(
+      pos=>{
+        userLat=pos.coords.latitude;
+        userLng=pos.coords.longitude;
+        fetch(`https://nominatim.openstreetmap.org/reverse?lat=${userLat}&lon=${userLng}&format=json`)
+          .then(r=>r.json()).then(d=>{
+            const a=d.address;
+            userCity=(a.city||a.town||a.village||'Sunnyvale')+(a.state?', '+a.state:'');
+            badge.textContent='📍 '+userCity;
+          }).catch(()=>{});
+      },
+      ()=>{},{timeout:6000}
+    );
+  }
+  showProgress();
+  runAISearch();
+};
+
+// ── AI SEARCH ──────────────────────────────────────────────────────────
+async function runAISearch(){
+  // Always use guaranteed coordinates
+  const lat=(userLat||37.3688).toFixed(4);
+  const lng=(userLng||-122.0363).toFixed(4);
+  const city=userCity||'Sunnyvale, CA';
+  const dateLabel=currentDay==='today'?'tonight':currentDay==='tomorrow'?'tomorrow':'this weekend';
+  const dates=getDateStrings(currentDay);
+
+  const prompt=`Search for FREE live music events happening ${dateLabel} (${dates}) near ${city} (lat:${lat}, lng:${lng}).
+
+CRITICAL: Only return events within 40 miles of ${city}. Do NOT return events from Los Angeles or any other city.
+
+Return ONLY a valid JSON array of up to 20 events:
+[{
+  "id": 1,
+  "name": "Artist name",
+  "venue": "Venue name",
+  "type": "Bar",
+  "address": "Full address near ${city}",
+  "time": "7:00 PM",
+  "timeSort": "19:00",
+  "genre": "Jazz",
+  "dist": "2.1 mi",
+  "lat": ${lat},
+  "lng": ${lng},
+  "note": "Free admission",
+  "performerBio": "2-3 sentence bio",
+  "sourceUrl": "https://eventbrite.com",
+  "sourceName": "Eventbrite"
+}]
+Rules: FREE events only, bars/restaurants/wineries/public spaces near ${city}, return ONLY the JSON array.`;
+
+  try{
+    updateStep(1,'active');
+    const res=await fetch(API,{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({
+        model:'claude-sonnet-4-20250514',
+        max_tokens:4000,
+        tools:[{type:'web_search_20250305',name:'web_search'}],
+        messages:[{role:'user',content:prompt}]
+      })
+    });
+    updateStep(1,'done');updateStep(2,'active');
+    const data=await res.json();
+    updateStep(2,'done');updateStep(3,'active');
+    const textBlock=data.content?.find(b=>b.type==='text');
+    if(!textBlock)throw new Error('no text block');
+    let raw=textBlock.text.trim().replace(/```json|```/g,'').trim();
+    const s=raw.indexOf('['),e=raw.lastIndexOf(']');
+    if(s===-1)throw new Error('no JSON array');
+    let events=JSON.parse(raw.slice(s,e+1));
+    // Recalculate distances and filter far events
+    events=events.map(ev=>{
+      if(ev.lat&&ev.lng) ev.dist=calcDist(userLat,userLng,ev.lat,ev.lng);
+      return ev;
+    }).filter(ev=>parseFloat(ev.dist)<=60);
+    updateStep(3,'done');
+    allEvents=events;
+    setTimeout(()=>renderEvents(false),300);
+  }catch(err){
+    console.error('Search error:',err);
+    allEvents=DEMO.filter(e=>e.day===currentDay);
+    renderEvents(true);
+  }
+}
+
+// ── RENDER ─────────────────────────────────────────────────────────────
+function renderEvents(isDemo){
+  const sorted=[...allEvents].sort((a,b)=>a.timeSort.localeCompare(b.timeSort));
+  const el=document.getElementById('content');
+  if(!sorted.length){
+    el.innerHTML=`<div class="state-box"><div class="state-icon">🎵</div><div class="state-title">Nothing found</div><div class="state-sub">No free events near ${userCity} for this date. Try another day!</div><button class="btn-primary" onclick="showProgress();runAISearch()">🔄 Try Again</button></div>`;
+    return;
+  }
+  el.innerHTML=`
+    <div class="result-meta"><span>${sorted.length} free events</span> near ${userCity}</div>
+    <div class="sources-row">
+      <div class="source-pill">🌐 Web Search</div>
+      <div class="source-pill">📅 Eventbrite</div>
+      <div class="source-pill">📘 Facebook Events</div>
+      <div class="source-pill">🍷 Local Venues</div>
+    </div>
+    <div class="events-list">${sorted.map(cardHTML).join('')}</div>`;
+  if(currentView==='map') buildMap(sorted);
+}
+
+function cardHTML(ev){
+  const parts=ev.time.split(' ');
+  const hm=parts[0].split(':');
+  const typeColor=ev.type==='Winery'?'#f87171':ev.type==='Bar'?'#fbbf24':ev.type==='Public'?'#60a5fa':'#34d399';
+  const typeBg=ev.type==='Winery'?'rgba(239,68,68,0.12)':ev.type==='Bar'?'rgba(245,158,11,0.12)':ev.type==='Public'?'rgba(96,165,250,0.12)':'rgba(16,185,129,0.12)';
+  return `<div class="event-card" onclick="openDetail(${ev.id})">
+    <div class="time-col">
+      <div class="time-main">${hm[0]}:${hm[1]||'00'}</div>
+      <div class="time-ampm">${parts[1]||''}</div>
+      <span class="time-divider"></span>
+    </div>
+    <div class="ev-body">
+      <div class="ev-name">${ev.name}</div>
+      <div class="ev-venue">${EMOJIS[ev.type]||'🎵'} ${ev.venue}</div>
+      <div class="ev-tags">
+        <span class="tag tag-genre">${ev.genre}</span>
+        <span class="tag" style="background:${typeBg};color:${typeColor}">${ev.type}</span>
+        <span class="tag tag-dist">📍 ${ev.dist}</span>
+        <span class="tag tag-free">✓ Free</span>
+      </div>
+    </div>
+    <div class="ev-emoji">${EMOJIS[ev.type]||'🎵'}</div>
+  </div>`;
+}
+
+// ── MAP ────────────────────────────────────────────────────────────────
+function buildMap(events){
+  if(leafletMap){leafletMap.remove();leafletMap=null;}
+  document.getElementById('map-wrap').innerHTML='<div id="the-map" style="width:100%;height:100%"></div>';
+  const cLat=userLat||37.3688, cLng=userLng||-122.0363;
+  leafletMap=L.map('the-map',{zoomControl:true}).setView([cLat,cLng],12);
+  L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:'© OpenStreetMap contributors',maxZoom:19}).addTo(leafletMap);
+  const uIcon=L.divIcon({className:'',html:'<div style="background:#10b981;width:16px;height:16px;border-radius:50%;border:3px solid white;box-shadow:0 0 0 5px rgba(16,185,129,0.25);"></div>',iconSize:[16,16],iconAnchor:[8,8]});
+  L.marker([cLat,cLng],{icon:uIcon}).addTo(leafletMap).bindPopup('<b>📍 You are here</b>');
+  const bounds=[[cLat,cLng]];
+  events.forEach(ev=>{
+    if(!ev.lat||!ev.lng||isNaN(ev.lat)||isNaN(ev.lng)||ev.lat===0)return;
+    bounds.push([ev.lat,ev.lng]);
+    const col=ev.type==='Winery'?'#f87171':ev.type==='Bar'?'#fbbf24':ev.type==='Public'?'#60a5fa':'#34d399';
+    const icon=L.divIcon({className:'',html:`<div style="background:#1c1c26;border:2px solid ${col};color:${col};padding:4px 8px;border-radius:10px;font-size:11px;font-weight:700;white-space:nowrap;box-shadow:0 2px 10px rgba(0,0,0,0.6);cursor:pointer;">${EMOJIS[ev.type]||'🎵'} ${ev.time}</div>`,iconAnchor:[0,0]});
+    L.marker([ev.lat,ev.lng],{icon}).addTo(leafletMap)
+      .bindPopup(`<div style="font-family:sans-serif;min-width:160px"><b>${ev.name}</b><br><span style="color:#888;font-size:12px">${ev.venue}</span><br><span style="font-size:12px">${ev.time} · ✓ Free</span></div>`)
+      .on('click',()=>openDetail(ev.id));
+  });
+  if(bounds.length>1) leafletMap.fitBounds(bounds,{padding:[40,40],maxZoom:13});
+  const sorted=[...events].sort((a,b)=>a.timeSort.localeCompare(b.timeSort));
+  document.getElementById('map-cards').innerHTML=sorted.map(ev=>`
+    <div class="map-mini-card" onclick="openDetail(${ev.id})">
+      <div class="mmc-time">${ev.time}</div>
+      <div class="mmc-info"><div class="mmc-name">${ev.name}</div><div class="mmc-venue">${ev.venue} · ${ev.dist}</div></div>
+      <div class="mmc-emoji">${EMOJIS[ev.type]||'🎵'}</div>
+    </div>`).join('');
+}
+
+// ── VIEW / DAY SWITCH ──────────────────────────────────────────────────
+function setView(v,btn){
+  currentView=v;
+  document.querySelectorAll('.view-btn').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  document.getElementById('list-view').style.display=v==='list'?'block':'none';
+  document.getElementById('map-view').style.display=v==='map'?'block':'none';
+  if(v==='map'&&allEvents.length) setTimeout(()=>buildMap(allEvents),50);
+}
+
+function setDay(d,btn){
+  currentDay=d;
+  document.querySelectorAll('.day-tab').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  allEvents=[];
+  showProgress();
+  runAISearch();
+}
+
+// ── DETAIL SHEET ───────────────────────────────────────────────────────
+function openDetail(id){
+  const ev=allEvents.find(e=>e.id==id)||DEMO.find(e=>e.id==id);
+  if(!ev)return;
+  const emoji=EMOJIS[ev.type]||'🎵';
+  const dayLabel=currentDay==='today'?'Tonight':currentDay==='tomorrow'?'Tomorrow':'This Weekend';
+  document.getElementById('detailBody').innerHTML=`
+    <div class="sheet-title">${ev.name}</div>
+    <div class="sheet-venue">${emoji} ${ev.venue} · ${ev.type}</div>
+    <div class="sheet-rows">
+      <div class="sheet-row"><span class="sheet-row-icon">🕐</span><div class="sheet-row-text"><strong>${ev.time} · ${dayLabel}</strong></div></div>
+      <div class="sheet-row"><span class="sheet-row-icon">📍</span><div class="sheet-row-text"><strong>${ev.address}</strong>${ev.dist} from you</div></div>
+      <div class="sheet-row"><span class="sheet-row-icon">🎵</span><div class="sheet-row-text"><strong>${ev.genre}</strong></div></div>
+      <div class="sheet-row"><span class="sheet-row-icon">✅</span><div class="sheet-row-text"><strong>Free Admission</strong> ${ev.note||''}</div></div>
+      ${ev.performerBio?`<div class="sheet-row"><span class="sheet-row-icon">🎤</span><div class="sheet-row-text"><strong>About the Performer</strong>${ev.performerBio}</div></div>`:''}
+      ${ev.sourceUrl?`<div class="sheet-row"><span class="sheet-row-icon">🔗</span><div class="sheet-row-text"><strong>Original Post</strong><a href="${ev.sourceUrl}" target="_blank" style="color:var(--accent);text-decoration:none;">View on ${ev.sourceName||'source'} ↗</a></div></div>`:''}
+    </div>
+    <div class="sheet-actions">
+      <button class="btn-sec" onclick="closeDetail()">Close</button>
+      <button class="btn-go" onclick="getDir(${ev.lat},${ev.lng},'${ev.address}')">🗺️ Directions</button>
+      ${ev.sourceUrl?`<button class="btn-src" onclick="window.open('${ev.sourceUrl}','_blank')">🔗 View Post</button>`:''}
+    </div>`;
+  document.getElementById('detailOverlay').classList.add('open');
+}
+
+function closeDetail(e){
+  if(!e||e.target===document.getElementById('detailOverlay'))
+    document.getElementById('detailOverlay').classList.remove('open');
+}
+
+function getDir(lat,lng,addr){
+  const dest=(lat&&lng&&!isNaN(lat))?`${lat},${lng}`:encodeURIComponent(addr);
+  window.open(`https://maps.apple.com/?daddr=${dest}`,'_blank');
+}
+
+// ── PROGRESS ───────────────────────────────────────────────────────────
+function showProgress(){
+  document.getElementById('content').innerHTML=`
+    <div class="ai-progress">
+      <div class="ai-progress-title"><div class="spinner" style="width:18px;height:18px;border-width:2px"></div> Finding free music near ${userCity}…</div>
+      <div class="ai-steps">
+        <div class="ai-step done" id="step0"><div class="step-dot"></div>Location: ${userCity}</div>
+        <div class="ai-step" id="step1"><div class="step-dot"></div>Searching Eventbrite, Facebook &amp; local venues</div>
+        <div class="ai-step" id="step2"><div class="step-dot"></div>Filtering free events only</div>
+        <div class="ai-step" id="step3"><div class="step-dot"></div>Sorting by time &amp; distance</div>
+      </div>
+    </div>`;
+}
+
+function updateStep(i,state){
+  const el=document.getElementById('step'+i);
+  if(el) el.className='ai-step '+state;
+}
+
+// ── HELPERS ────────────────────────────────────────────────────────────
+function calcDist(lat1,lng1,lat2,lng2){
+  const R=3958.8,r=x=>x*Math.PI/180;
+  const dLat=r(lat2-lat1),dLng=r(lng2-lng1);
+  const a=Math.sin(dLat/2)**2+Math.cos(r(lat1))*Math.cos(r(lat2))*Math.sin(dLng/2)**2;
+  return (R*2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a))).toFixed(1)+' mi';
+}
+
+function getDateStrings(day){
+  const now=new Date(),fmt=d=>`${['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][d.getDay()]} ${d.getMonth()+1}/${d.getDate()}`;
+  if(day==='today') return fmt(now);
+  if(day==='tomorrow'){const t=new Date(now);t.setDate(t.getDate()+1);return fmt(t);}
+  const dow=now.getDay();
+  const sat=new Date(now);sat.setDate(now.getDate()+(6-dow));
+  const sun=new Date(now);sun.setDate(now.getDate()+(7-dow));
+  return fmt(sat)+' – '+fmt(sun);
+}
+</script>
+</body>
+</html>
