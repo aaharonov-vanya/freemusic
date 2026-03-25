@@ -10,7 +10,7 @@
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css"/>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <style>
-  :root {
+ :root {
     --bg:#0a0a0f; --surface:#13131a; --card:#1c1c26;
     --border:#2a2a38; --accent:#b84ef0; --accent2:#7c3aed;
     --gold:#f59e0b; --green:#10b981; --text:#f0f0f8; --muted:#8888aa; --radius:16px;
@@ -194,7 +194,135 @@ const DEMO=[
   {id:13,name:"Park Concert Series",venue:"Sunset Park Amphitheater",type:"Public",address:"3901 Sunset Dr, Los Angeles, CA 90026",time:"5:00 PM",timeSort:"17:00",day:"weekend",genre:"Classical/Jazz",dist:"6.3 mi",lat:-0.022,lng:0.031,note:"Free, bring a blanket!",performerBio:"The city's beloved outdoor concert series returns for the season. This weekend features the Chamber Wind Ensemble performing a mix of classical favorites and jazz arrangements in a beautiful park setting.",sourceUrl:"https://www.eventbrite.com",sourceName:"Eventbrite"},
 ];
 
-// ── ZIP CODE ───────────────────────────────────────────────────────────
+// ── ZIP DATABASE (no external API needed) ─────────────────────────────
+// Major US ZIP codes with city, state, lat, lng
+const ZIP_DB={
+  // California
+  '90001':['Los Angeles','CA',33.9731,-118.2479],'90012':['Los Angeles','CA',34.0578,-118.2420],
+  '90024':['Los Angeles','CA',34.0625,-118.4454],'90210':['Beverly Hills','CA',34.0901,-118.4065],
+  '90401':['Santa Monica','CA',34.0195,-118.4912],'91101':['Pasadena','CA',34.1478,-118.1445],
+  '91201':['Glendale','CA',34.1700,-118.3143],'91401':['Van Nuys','CA',34.1869,-118.4488],
+  '91601':['North Hollywood','CA',34.1719,-118.3824],'92101':['San Diego','CA',32.7338,-117.1933],
+  '92103':['San Diego','CA',32.7490,-117.1642],'92401':['San Bernardino','CA',34.1083,-117.2898],
+  '93101':['Santa Barbara','CA',34.4208,-119.6982],'93401':['San Luis Obispo','CA',35.2828,-120.6596],
+  '94002':['Belmont','CA',37.5202,-122.2758],'94010':['Burlingame','CA',37.5841,-122.3661],
+  '94025':['Menlo Park','CA',37.4529,-122.1817],'94027':['Atherton','CA',37.4647,-122.1977],
+  '94040':['Mountain View','CA',37.3861,-122.0839],'94041':['Mountain View','CA',37.3894,-122.0819],
+  '94043':['Mountain View','CA',37.4030,-122.0796],'94085':['Sunnyvale','CA',37.3882,-122.0297],
+  '94086':['Sunnyvale','CA',37.3735,-122.0311],'94087':['Sunnyvale','CA',37.3688,-122.0363],
+  '94089':['Sunnyvale','CA',37.4024,-122.0086],'94102':['San Francisco','CA',37.7794,-122.4183],
+  '94103':['San Francisco','CA',37.7726,-122.4099],'94105':['San Francisco','CA',37.7897,-122.3942],
+  '94107':['San Francisco','CA',37.7647,-122.3997],'94110':['San Francisco','CA',37.7490,-122.4183],
+  '94117':['San Francisco','CA',37.7694,-122.4469],'94118':['San Francisco','CA',37.7817,-122.4613],
+  '94301':['Palo Alto','CA',37.4419,-122.1430],'94303':['Palo Alto','CA',37.4479,-122.1152],
+  '94401':['San Mateo','CA',37.5661,-122.3230],'94501':['Alameda','CA',37.7652,-122.2416],
+  '94601':['Oakland','CA',37.7771,-122.2219],'94610':['Oakland','CA',37.8108,-122.2477],
+  '94702':['Berkeley','CA',37.8731,-122.2809],'94710':['Berkeley','CA',37.8697,-122.2977],
+  '95008':['Campbell','CA',37.2872,-121.9500],'95014':['Cupertino','CA',37.3230,-122.0322],
+  '95032':['Los Gatos','CA',37.2358,-121.9625],'95050':['Santa Clara','CA',37.3541,-121.9552],
+  '95051':['Santa Clara','CA',37.3496,-121.9774],'95112':['San Jose','CA',37.3496,-121.8960],
+  '95125':['San Jose','CA',37.2969,-121.8996],'95128':['San Jose','CA',37.3196,-121.9341],
+  // New York
+  '10001':['New York','NY',40.7484,-73.9967],'10002':['New York','NY',40.7157,-73.9863],
+  '10003':['New York','NY',40.7317,-73.9892],'10011':['New York','NY',40.7420,-74.0048],
+  '10012':['New York','NY',40.7258,-74.0019],'10013':['New York','NY',40.7196,-74.0045],
+  '10014':['New York','NY',40.7337,-74.0070],'10019':['New York','NY',40.7659,-73.9838],
+  '10021':['New York','NY',40.7685,-73.9591],'10025':['New York','NY',40.7993,-73.9669],
+  '10036':['New York','NY',40.7593,-73.9901],'10128':['New York','NY',40.7812,-73.9493],
+  '11201':['Brooklyn','NY',40.6944,-73.9906],'11211':['Brooklyn','NY',40.7121,-73.9538],
+  '11215':['Brooklyn','NY',40.6601,-73.9841],'11217':['Brooklyn','NY',40.6784,-73.9782],
+  '11101':['Long Island City','NY',40.7447,-73.9485],'10451':['Bronx','NY',40.8194,-73.9274],
+  '10301':['Staten Island','NY',40.6298,-74.0944],
+  // Texas
+  '75201':['Dallas','TX',32.7891,-96.7994],'75202':['Dallas','TX',32.7801,-96.8003],
+  '75205':['Dallas','TX',32.8310,-96.7868],'75206':['Dallas','TX',32.8229,-96.7762],
+  '76101':['Fort Worth','TX',32.7515,-97.3307],'77001':['Houston','TX',29.7523,-95.3677],
+  '77002':['Houston','TX',29.7543,-95.3677],'77006':['Houston','TX',29.7391,-95.3905],
+  '78201':['San Antonio','TX',29.4722,-98.5247],'78205':['San Antonio','TX',29.4246,-98.4932],
+  '78701':['Austin','TX',30.2711,-97.7437],'78702':['Austin','TX',30.2599,-97.7228],
+  '78704':['Austin','TX',30.2453,-97.7627],'78741':['Austin','TX',30.2274,-97.7162],
+  // Florida
+  '33101':['Miami','FL',25.7959,-80.2102],'33109':['Miami Beach','FL',25.7907,-80.1300],
+  '33139':['Miami Beach','FL',25.7814,-80.1300],'33301':['Fort Lauderdale','FL',26.1220,-80.1433],
+  '32801':['Orlando','FL',28.5421,-81.3790],'32803':['Orlando','FL',28.5594,-81.3629],
+  '33601':['Tampa','FL',27.9506,-82.4572],'33602':['Tampa','FL',27.9483,-82.4572],
+  '32202':['Jacksonville','FL',30.3322,-81.6557],
+  // Illinois
+  '60601':['Chicago','IL',41.8858,-87.6181],'60602':['Chicago','IL',41.8830,-87.6278],
+  '60607':['Chicago','IL',41.8716,-87.6530],'60611':['Chicago','IL',41.8963,-87.6228],
+  '60614':['Chicago','IL',41.9216,-87.6465],'60622':['Chicago','IL',41.9025,-87.6817],
+  '60625':['Chicago','IL',41.9733,-87.7030],'60657':['Chicago','IL',41.9397,-87.6481],
+  // Washington
+  '98101':['Seattle','WA',47.6080,-122.3351],'98102':['Seattle','WA',47.6310,-122.3229],
+  '98103':['Seattle','WA',47.6567,-122.3430],'98109':['Seattle','WA',47.6243,-122.3571],
+  '98115':['Seattle','WA',47.6818,-122.2965],'98122':['Seattle','WA',47.6091,-122.3037],
+  // Massachusetts
+  '02101':['Boston','MA',42.3601,-71.0589],'02108':['Boston','MA',42.3581,-71.0636],
+  '02110':['Boston','MA',42.3575,-71.0524],'02116':['Boston','MA',42.3489,-71.0751],
+  '02118':['Boston','MA',42.3355,-71.0783],'02139':['Cambridge','MA',42.3659,-71.1039],
+  '02141':['Cambridge','MA',42.3680,-71.0776],
+  // Colorado
+  '80202':['Denver','CO',39.7547,-104.9986],'80203':['Denver','CO',39.7285,-104.9840],
+  '80205':['Denver','CO',39.7569,-104.9659],'80209':['Denver','CO',39.7090,-104.9603],
+  '80218':['Denver','CO',39.7285,-104.9717],'80302':['Boulder','CO',40.0150,-105.2705],
+  // Georgia
+  '30301':['Atlanta','GA',33.7490,-84.3880],'30303':['Atlanta','GA',33.7527,-84.3886],
+  '30306':['Atlanta','GA',33.7763,-84.3533],'30307':['Atlanta','GA',33.7685,-84.3352],
+  '30308':['Atlanta','GA',33.7712,-84.3764],'30309':['Atlanta','GA',33.7962,-84.3860],
+  // Arizona
+  '85001':['Phoenix','AZ',33.4484,-112.0740],'85003':['Phoenix','AZ',33.4484,-112.0740],
+  '85251':['Scottsdale','AZ',33.4942,-111.9261],'85281':['Tempe','AZ',33.4255,-111.9400],
+  '85701':['Tucson','AZ',32.2217,-110.9265],
+  // Nevada
+  '89101':['Las Vegas','NV',36.1699,-115.1398],'89102':['Las Vegas','NV',36.1531,-115.1731],
+  '89109':['Las Vegas','NV',36.1215,-115.1685],'89501':['Reno','NV',39.5296,-119.8138],
+  // Oregon
+  '97201':['Portland','OR',45.5122,-122.6587],'97202':['Portland','OR',45.4946,-122.6418],
+  '97205':['Portland','OR',45.5200,-122.6818],'97209':['Portland','OR',45.5272,-122.6816],
+  // Michigan
+  '48201':['Detroit','MI',42.3314,-83.0458],'48202':['Detroit','MI',42.3678,-83.0724],
+  '48226':['Detroit','MI',42.3314,-83.0458],'49503':['Grand Rapids','MI',42.9634,-85.6681],
+  // Pennsylvania
+  '19101':['Philadelphia','PA',39.9526,-75.1652],'19103':['Philadelphia','PA',39.9534,-75.1746],
+  '19107':['Philadelphia','PA',39.9469,-75.1580],'15201':['Pittsburgh','PA',40.4774,-79.9596],
+  '15203':['Pittsburgh','PA',40.4279,-79.9768],'15213':['Pittsburgh','PA',40.4432,-79.9533],
+  // Ohio
+  '44101':['Cleveland','OH',41.4993,-81.6944],'44113':['Cleveland','OH',41.4845,-81.7163],
+  '43201':['Columbus','OH',39.9612,-82.9988],'43215':['Columbus','OH',39.9612,-83.0007],
+  '45202':['Cincinnati','OH',39.1031,-84.5120],
+  // Tennessee
+  '37201':['Nashville','TN',36.1627,-86.7816],'37203':['Nashville','TN',36.1445,-86.7936],
+  '37206':['Nashville','TN',36.1765,-86.7290],'38101':['Memphis','TN',35.1495,-90.0490],
+  // Louisiana
+  '70112':['New Orleans','LA',29.9511,-90.0715],'70113':['New Orleans','LA',29.9500,-90.0840],
+  '70116':['New Orleans','LA',29.9684,-90.0612],
+  // Minnesota
+  '55401':['Minneapolis','MN',44.9778,-93.2650],'55403':['Minneapolis','MN',44.9719,-93.2907],
+  '55408':['Minneapolis','MN',44.9490,-93.2986],'55101':['St. Paul','MN',44.9537,-93.0900],
+  // North Carolina
+  '27601':['Raleigh','NC',35.7796,-78.6382],'27701':['Durham','NC',35.9940,-78.8986],
+  '28202':['Charlotte','NC',35.2271,-80.8431],'28801':['Asheville','NC',35.5951,-82.5515],
+  // Virginia
+  '22301':['Alexandria','VA',38.8048,-77.0469],'23219':['Richmond','VA',37.5407,-77.4360],
+  '22201':['Arlington','VA',38.8816,-77.0910],
+  // Maryland
+  '21201':['Baltimore','MD',39.2904,-76.6122],'21202':['Baltimore','MD',39.2951,-76.6064],
+  '20001':['Washington','DC',38.9072,-77.0369],'20005':['Washington','DC',38.9027,-77.0301],
+  '20009':['Washington','DC',38.9219,-77.0378],
+};
+
+function lookupZip(zip){
+  // Exact match first
+  if(ZIP_DB[zip]) return ZIP_DB[zip];
+  // Try nearby ZIPs (same prefix)
+  const prefix=zip.slice(0,4);
+  const nearby=Object.keys(ZIP_DB).find(k=>k.startsWith(prefix));
+  if(nearby) return ZIP_DB[nearby];
+  const prefix3=zip.slice(0,3);
+  const nearby3=Object.keys(ZIP_DB).find(k=>k.startsWith(prefix3));
+  if(nearby3) return ZIP_DB[nearby3];
+  return null;
+}
 function showZipInput(){
   document.getElementById('zipBar').style.display='flex';
   document.getElementById('zipInput').focus();
@@ -206,22 +334,52 @@ function searchByZip(){
   const zip=document.getElementById('zipInput').value.trim();
   if(!zip||zip.length<5){alert('Please enter a valid 5-digit ZIP code.');return;}
   hideZipInput();
+
+  // Reset everything first
+  userLat=null; userLng=null; userCity='';
+  allEvents=[];
+
+  const badge=document.getElementById('locBadge');
+  badge.className='loc-badge';
+  badge.textContent='📍 Looking up '+zip+'...';
   showProgress();
-  fetch(`https://nominatim.openstreetmap.org/search?postalcode=${zip}&country=US&format=json&limit=1`)
-    .then(r=>r.json())
+
+  // Use zippopotam.us — free, no API key, no CORS issues
+  fetch(`https://api.zippopotam.us/us/${zip}`)
+    .then(r=>{
+      if(!r.ok) throw new Error('ZIP not found');
+      return r.json();
+    })
     .then(data=>{
-      if(!data||!data.length){alert('ZIP code not found. Please try again.');return;}
-      userLat=parseFloat(data[0].lat);
-      userLng=parseFloat(data[0].lon);
-      // Extract city and state cleanly from result
-      const parts=data[0].display_name.split(',').map(s=>s.trim());
-      userCity=`${parts[0]}, ${parts[2]||parts[1]} ${zip}`;
-      const badge=document.getElementById('locBadge');
+      const place=data.places[0];
+      userLat=parseFloat(place.latitude);
+      userLng=parseFloat(place.longitude);
+      userCity=`${place['place name']}, ${place['state abbreviation']} ${zip}`;
+
       badge.className='loc-badge on';
       badge.textContent='📍 '+userCity;
+
+      console.log('ZIP lookup OK:', zip, '→', userLat, userLng, userCity);
       runAISearch(userCity);
     })
-    .catch(()=>alert('Could not look up ZIP code. Please try again.'));
+    .catch(err=>{
+      console.error('ZIP lookup failed:', err);
+      // Final fallback: ask user to confirm city manually
+      const city=prompt(`Could not auto-detect city for ZIP ${zip}.\nPlease type your city and state (e.g. Sunnyvale, CA):`);
+      if(city){
+        userCity=city+' '+zip;
+        badge.className='loc-badge on';
+        badge.textContent='📍 '+userCity;
+        // Use approximate coords from a geocoding fallback
+        fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(city)}&format=json&limit=1`)
+          .then(r=>r.json())
+          .then(d=>{
+            if(d&&d.length){userLat=parseFloat(d[0].lat);userLng=parseFloat(d[0].lon);}
+            runAISearch(userCity);
+          })
+          .catch(()=>runAISearch(userCity));
+      }
+    });
 }
 
 
@@ -253,11 +411,20 @@ function useFallback(){
 }
 
 function reverseGeocode(lat,lng,cb){
+  // Try Nominatim, but if it fails just use coordinates as label
   fetch(`https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json`)
     .then(r=>r.json()).then(d=>{
       const a=d.address;
       cb((a.city||a.town||a.village||'your area')+(a.state?', '+a.state:''));
-    }).catch(()=>cb('your area'));
+    }).catch(()=>{
+      // Fallback: reverse lookup from our ZIP_DB by finding closest entry
+      let closest=null, minDist=999;
+      for(const [zip,info] of Object.entries(ZIP_DB)){
+        const d=Math.abs(info[2]-lat)+Math.abs(info[3]-lng);
+        if(d<minDist){minDist=d;closest=info;}
+      }
+      cb(closest?`${closest[0]}, ${closest[1]}`:'your area');
+    });
 }
 
 function useFallback(){
