@@ -209,7 +209,7 @@ Rules: FREE events only, bars/restaurants/wineries/public spaces near ${city}, r
       headers: {'Content-Type':'application/json'},
       body: JSON.stringify({
         model: 'claude-sonnet-4-20250514',
-        max_tokens: 1000,
+        max_tokens: 4000,
         tools: [{type:'web_search_20250305', name:'web_search'}],
         messages: [{role:'user', content:prompt}]
       })
@@ -236,11 +236,12 @@ Rules: FREE events only, bars/restaurants/wineries/public spaces near ${city}, r
     setTimeout(() => renderEvents(), 300);
   } catch(err) {
     console.error('Search error:', err);
+    console.error('userLat:', userLat, 'userLng:', userLng, 'userCity:', userCity);
     document.getElementById('content').innerHTML = `
       <div class="state-box">
         <div class="state-icon">😕</div>
         <div class="state-title">Search failed</div>
-        <div class="state-sub">Could not find events near ${city}. Please check your connection and try again.</div>
+        <div class="state-sub">${err.message||'Unknown error'}. Open browser console for details.</div>
         <button class="btn-primary" onclick="showProgress();runSearch()">🔄 Try Again</button>
       </div>`;
   }
