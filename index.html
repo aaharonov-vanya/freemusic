@@ -244,6 +244,14 @@ function startSearch(){
   );
 }
 
+function useFallback(){
+  document.getElementById('locBadge').textContent='📍 San Francisco, CA';
+  document.getElementById('locBadge').className='loc-badge on';
+  userLat=37.7749; userLng=-122.4194; userCity='San Francisco, CA';
+  allEvents=DEMO;
+  setTimeout(()=>renderEvents(false),600);
+}
+
 function reverseGeocode(lat,lng,cb){
   fetch(`https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json`)
     .then(r=>r.json()).then(d=>{
@@ -316,13 +324,21 @@ Rules: only FREE events, only bars/restaurants/wineries, sort by time, include r
     if(s===-1)throw new Error('no array');
     const events=JSON.parse(raw.slice(s,e+1));
     updateStep(3,'done');
-    allEvents=events.map(ev=>{
-      // recalculate real distance from user location using lat/lng
-      if(userLat&&userLng&&ev.lat&&ev.lng){
-        ev.dist=calcDist(userLat,userLng,ev.lat,ev.lng);
-      }
-      return ev;
-    });
+    allEvents=events
+      .map(ev=>{
+        if(userLat&&userLng&&ev.lat&&ev.lng){
+          ev.dist=calcDist(userLat,userLng,ev.lat,ev.lng);
+        }
+        return ev;
+      })
+      .filter(ev=>{
+        // Drop any event the AI returned that is more than 60 miles away (catches wrong-city results)
+        if(userLat&&userLng&&ev.lat&&ev.lng){
+          const d=parseFloat(ev.dist);
+          return isNaN(d)||d<=60;
+        }
+        return true;
+      });
     setTimeout(()=>renderEvents(false),300);
   }catch(err){
     console.error(err);
@@ -383,67 +399,43 @@ function cardHTML(ev){
 }
 
 // ── MAP ───────────────────────────────────────────────────────────────
-function buildMap(events, isDemo){
-  // destroy old map instance first
-  if(leafletMap){
-    leafletMap.remove();
-    leafletMap=null;
-  }
-
-  // clear and reset container (fixes Leaflet grey tile bug)
+function buildMap(events,isDemo){
+  if(leafletMap){leafletMap.remove();leafletMap=null;}
   const wrap=document.getElementById('map-wrap');
   wrap.innerHTML='<div id="the-map" style="width:100%;height:100%"></div>';
 
-  const cLat=userLat||34.0522, cLng=userLng||-118.2437;
+  const cLat=userLat||37.7749, cLng=userLng||-122.4194;
   leafletMap=L.map('the-map',{zoomControl:true}).setView([cLat,cLng],12);
 
-  // Try CartoDB dark first, fall back to OSM if blocked
-  const darkTiles = L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',{
-    attribution:'© OpenStreetMap © CARTO', subdomains:'abcd', maxZoom:19
-  });
-  const osmTiles = L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',{
-    attribution:'© OpenStreetMap contributors', maxZoom:19
-  });
+  const darkTiles=L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',{attribution:'© OpenStreetMap © CARTO',subdomains:'abcd',maxZoom:19});
+  const osmTiles=L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:'© OpenStreetMap contributors',maxZoom:19});
+  const testImg=new Image();
+  testImg.onload=()=>darkTiles.addTo(leafletMap);
+  testImg.onerror=()=>osmTiles.addTo(leafletMap);
+  testImg.src='https://a.basemaps.cartocdn.com/dark_all/5/15/12.png';
 
-  // Test if CartoDB loads, otherwise fall back to OSM
-  const testImg = new Image();
-  testImg.onload = () => darkTiles.addTo(leafletMap);
-  testImg.onerror = () => osmTiles.addTo(leafletMap);
-  testImg.src = 'https://a.basemaps.cartocdn.com/dark_all/5/15/12.png';
-
-  // user location pin
-  if(userLat){
+  if(userLat&&userLng){
     const uIcon=L.divIcon({className:'',html:'<div style="background:#10b981;width:16px;height:16px;border-radius:50%;border:3px solid white;box-shadow:0 0 0 5px rgba(16,185,129,0.25);"></div>',iconSize:[16,16],iconAnchor:[8,8]});
     L.marker([userLat,userLng],{icon:uIcon}).addTo(leafletMap).bindPopup('<b>📍 You are here</b>');
   }
 
   const bounds=userLat?[[userLat,userLng]]:[];
-
   events.forEach(ev=>{
-    let lat=ev.lat, lng=ev.lng;
-    // demo mode: offset from user location
-    if(isDemo){lat=(userLat||34.0522)+ev.lat; lng=(userLng||-118.2437)+ev.lng;}
+    // In demo mode offset pins relative to actual user location, never LA
+    let lat = isDemo ? cLat + ev.lat : ev.lat;
+    let lng = isDemo ? cLng + ev.lng : ev.lng;
     if(!lat||!lng||isNaN(lat)||isNaN(lng))return;
     bounds.push([lat,lng]);
-
     const em=EMOJIS[ev.type]||'🎵';
-    const col=ev.type==='Winery'?'#f87171':ev.type==='Bar'?'#fbbf24':'#34d399';
-    const icon=L.divIcon({
-      className:'',
-      html:`<div style="background:#1c1c26;border:2px solid ${col};color:${col};padding:4px 8px;border-radius:10px;font-size:11px;font-weight:700;white-space:nowrap;box-shadow:0 2px 10px rgba(0,0,0,0.6);cursor:pointer;">${em} ${ev.time}</div>`,
-      iconAnchor:[0,0]
-    });
+    const col=ev.type==='Winery'?'#f87171':ev.type==='Bar'?'#fbbf24':ev.type==='Public'?'#60a5fa':'#34d399';
+    const icon=L.divIcon({className:'',html:`<div style="background:#1c1c26;border:2px solid ${col};color:${col};padding:4px 8px;border-radius:10px;font-size:11px;font-weight:700;white-space:nowrap;box-shadow:0 2px 10px rgba(0,0,0,0.6);cursor:pointer;">${em} ${ev.time}</div>`,iconAnchor:[0,0]});
     L.marker([lat,lng],{icon}).addTo(leafletMap)
       .bindPopup(`<div style="font-family:sans-serif;min-width:160px"><b>${ev.name}</b><br><span style="color:#888;font-size:12px">${ev.venue}</span><br><span style="font-size:12px">${ev.time} · ✓ Free</span></div>`)
       .on('click',()=>openDetail(ev.id));
   });
 
-  // fit map to show all pins
-  if(bounds.length>1){
-    leafletMap.fitBounds(bounds,{padding:[40,40],maxZoom:13});
-  }
+  if(bounds.length>1){leafletMap.fitBounds(bounds,{padding:[40,40],maxZoom:13});}
 
-  // mini card list under map
   const sorted=[...events].sort((a,b)=>a.timeSort.localeCompare(b.timeSort));
   document.getElementById('map-cards').innerHTML=sorted.map(ev=>`
     <div class="map-mini-card" onclick="openDetail(${ev.id})">
