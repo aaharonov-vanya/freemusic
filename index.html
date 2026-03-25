@@ -403,11 +403,16 @@ function startSearch(){
 }
 
 function useFallback(){
-  document.getElementById('locBadge').textContent='📍 San Francisco, CA';
-  document.getElementById('locBadge').className='loc-badge on';
-  userLat=37.7749; userLng=-122.4194; userCity='San Francisco, CA';
-  allEvents=DEMO;
-  setTimeout(()=>renderEvents(false),600);
+  const badge=document.getElementById('locBadge');
+  badge.textContent='📍 Tap to locate';
+  badge.className='loc-badge';
+  document.getElementById('content').innerHTML=`
+    <div class="state-box">
+      <div class="state-icon">📍</div>
+      <div class="state-title">Location needed</div>
+      <div class="state-sub">Please allow location access or enter your ZIP code to find free music near you.</div>
+      <button class="btn-primary" onclick="startSearch()">📍 Try Location Again</button>
+    </div>`;
 }
 
 function reverseGeocode(lat,lng,cb){
@@ -509,8 +514,20 @@ Rules: only FREE events, only bars/restaurants/wineries, sort by time, include r
     setTimeout(()=>renderEvents(false),300);
   }catch(err){
     console.error(err);
-    allEvents=DEMO;
-    renderEvents(true);
+    // Only use demo data if we have no real location at all
+    if(!userLat&&!userLng){
+      allEvents=DEMO;
+      renderEvents(true);
+    } else {
+      // We have a real location — show empty state instead of wrong-city demo data
+      document.getElementById('content').innerHTML=`
+        <div class="state-box">
+          <div class="state-icon">🎵</div>
+          <div class="state-title">Search failed</div>
+          <div class="state-sub">Could not load events near ${userCity}. Please check your connection and try again.</div>
+          <button class="btn-primary" onclick="showProgress();runAISearch('${userCity}')">🔄 Try Again</button>
+        </div>`;
+    }
   }
 }
 
