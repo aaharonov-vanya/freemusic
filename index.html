@@ -207,14 +207,15 @@ function searchByZip(){
   if(!zip||zip.length<5){alert('Please enter a valid 5-digit ZIP code.');return;}
   hideZipInput();
   showProgress();
-  // Convert ZIP to lat/lng via Nominatim
   fetch(`https://nominatim.openstreetmap.org/search?postalcode=${zip}&country=US&format=json&limit=1`)
     .then(r=>r.json())
     .then(data=>{
       if(!data||!data.length){alert('ZIP code not found. Please try again.');return;}
       userLat=parseFloat(data[0].lat);
       userLng=parseFloat(data[0].lon);
-      userCity=data[0].display_name.split(',').slice(0,2).join(',').trim();
+      // Extract city and state cleanly from result
+      const parts=data[0].display_name.split(',').map(s=>s.trim());
+      userCity=`${parts[0]}, ${parts[2]||parts[1]} ${zip}`;
       const badge=document.getElementById('locBadge');
       badge.className='loc-badge on';
       badge.textContent='📍 '+userCity;
